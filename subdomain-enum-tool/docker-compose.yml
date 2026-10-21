@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  # ── Tool image (pre-built, used by backend via docker exec) ──
+  recon-tools:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: recon-tools:latest
+    container_name: recon-tools
+    # Keep container alive so backend can exec into it
+    command: tail -f /dev/null
+    volumes:
+      - recon-output:/output
+      - wordlists:/wordlists
+    restart: unless-stopped
+
+  # ── Backend API ───────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: recon-backend
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - TOOLS_CONTAINER=recon-tools
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - recon-output:/output
+      - wordlists:/wordlists
+    depends_on:
+      - recon-tools
+    restart: unless-stopped
+
+  # ── Frontend ──────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: recon-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  recon-output:
+  wordlists:
